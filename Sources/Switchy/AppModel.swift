@@ -113,7 +113,12 @@ final class AppModel {
     var statusItemVisible: Bool {
         MenuBarPolicy.showsStatusItem(userWantsIt: showStatusItem, accessibilityGranted: accessibilityGranted, monitoring: tapRunning)
     }
-    var conflicts: Set<UUID> { BindingList.conflictingIDs(bindings) }
+    /// Saved bindings minus those for layouts that aren't enabled right now.
+    var activeBindings: [ShortcutBinding] {
+        BindingList.active(bindings, enabledSourceIDs: Set(sources.map(\.id)))
+    }
+    /// Only live bindings can collide; a hidden one for a removed layout shouldn't flag a visible one.
+    var conflicts: Set<UUID> { BindingList.conflictingIDs(activeBindings) }
 
     func bindings(for action: SwitchAction) -> [ShortcutBinding] {
         bindings.filter { $0.action == action }
@@ -208,9 +213,9 @@ final class AppModel {
         tap?.startRecording()
     }
 
+    /// Safe to call any time. Always tells the tap too, so it can never keep recording on its own.
     func cancelRecording() {
-        guard recordingFor != nil else { return }
-        recordingFor = nil
+        if recordingFor != nil { recordingFor = nil }
         tap?.cancelRecording()
     }
 
@@ -243,8 +248,9 @@ final class AppModel {
         onDisplayChange?()
     }
 
+    /// Call whenever the bindings, the tap time, or the list of enabled layouts changes.
     private func pushConfiguration() {
-        tap?.configure(bindings: bindings, maxTapDuration: maxTapDuration)
+        tap?.configure(bindings: activeBindings, maxTapDuration: maxTapDuration)
     }
 
     // MARK: MLSwitcher2
@@ -343,7 +349,7 @@ final class AppModel {
         }
         if tap.ensureEnabled() { stats.tapReenabled += 1 }
         tapRunning = tap.isRunning
-        if !tapRunning { recordingFor = nil }
+        if !tapRunning { cancelRecording() }
         onDisplayChange?()
     }
 
@@ -362,6 +368,8 @@ final class AppModel {
     private func reloadSources() {
         sources = InputSourceCatalog.enabledKeyboardSources()
         iconCache = [:]
+        // A layout added or removed in System Settings turns its shortcuts on or off.
+        pushConfiguration()
         updateCurrentSource()
     }
 
@@ -375,6 +383,7 @@ final class AppModel {
 
     private func restartTap() {
         guard let tap else { return }
+        cancelRecording()
         tap.stop()
         tapRunning = false
         refreshPermissionAndTap()

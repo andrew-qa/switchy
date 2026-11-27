@@ -16,9 +16,9 @@ public struct SwitchOutcome: Equatable, Sendable {
 
 /// Selects an input source and checks that it actually became current, retrying a few times.
 ///
-/// MLSwitcher2 fires a single `TISSelectInputSource` on a handle cached at launch and never looks
-/// at the result. When that call is dropped (stale handle after sleep, sandbox, the system busy
-/// re-reading layouts) the shortcut silently does nothing. This is the fix for that.
+/// A single `TISSelectInputSource` call can be dropped (stale handle after sleep, sandbox, the
+/// system busy re-reading layouts), and then the shortcut silently does nothing. Checking the
+/// result and retrying fixes that.
 @MainActor
 public final class InputSourceSwitcher {
     public typealias Work = @MainActor @Sendable () -> Void

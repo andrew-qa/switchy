@@ -184,6 +184,17 @@ struct ShortcutEngineTests {
         #expect(e.handle(.modifiersChanged([]), at: 2).effect == .recorded(.modifierTap(ModifierPattern(command: .right))))
     }
 
+    @Test func cancelledRecordingLetsTypingThrough() {
+        // Settings cancels recording when it loses focus; after that, letters must reach the app.
+        var e = engine()
+        e.startRecording()
+        #expect(e.handle(.keyDown(keyCode: 0, modifiers: [], isRepeat: false), at: 0) == .swallowed)
+        e.cancelRecording()
+        #expect(e.handle(.keyUp(keyCode: 0), at: 0.1) == .swallowed) // pairs with the eaten key-down
+        #expect(e.handle(.keyDown(keyCode: 0, modifiers: [], isRepeat: false), at: 0.2) == .pass)
+        #expect(e.handle(.keyDown(keyCode: 18, modifiers: [.leftOption], isRepeat: false), at: 0.3).effect == .perform(.select(sourceID: "abc")))
+    }
+
     @Test func escapeCancelsRecording() {
         var e = engine()
         e.startRecording()

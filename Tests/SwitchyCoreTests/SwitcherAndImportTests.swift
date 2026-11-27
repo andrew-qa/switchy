@@ -211,6 +211,42 @@ struct BindingListTests {
         #expect(BindingList.decode(nil).isEmpty)
     }
 
+    static let optionOne = KeyCombo(keyCode: 18, modifiers: ModifierPattern(option: .either))
+
+    @Test func shortcutsForRemovedLayoutsAreInactiveButKept() {
+        let abc = ShortcutBinding(action: .select(sourceID: "abc"), shortcut: .keyCombo(KeyCombo(keyCode: 29, modifiers: ModifierPattern(option: .either))))
+        let ukr = ShortcutBinding(action: .select(sourceID: "ukr"), shortcut: .keyCombo(Self.optionOne))
+        let next = ShortcutBinding(action: .next, shortcut: .modifierTap(ModifierPattern(command: .right)))
+        let saved = [abc, ukr, next]
+        #expect(BindingList.active(saved, enabledSourceIDs: ["abc"]) == [abc, next])
+        #expect(BindingList.active(saved, enabledSourceIDs: ["abc", "ukr"]) == saved)
+        #expect(BindingList.active(saved, enabledSourceIDs: []) == [next])
+    }
+
+    @Test func removedLayoutsShortcutReachesTheApp() {
+        let ukr = ShortcutBinding(action: .select(sourceID: "ukr"), shortcut: .keyCombo(Self.optionOne))
+        var engine = ShortcutEngine(bindings: BindingList.active([ukr], enabledSourceIDs: ["abc"]))
+        #expect(engine.handle(.keyDown(keyCode: 18, modifiers: [.leftOption], isRepeat: false), at: 0) == .pass)
+        engine.configure(bindings: BindingList.active([ukr], enabledSourceIDs: ["abc", "ukr"]), maxTapDuration: ShortcutEngine.defaultMaxTapDuration)
+        #expect(engine.handle(.keyDown(keyCode: 18, modifiers: [.leftOption], isRepeat: false), at: 1).effect == .perform(.select(sourceID: "ukr")))
+    }
+
+    @Test func inactiveShortcutDoesNotConflictWithALiveOne() {
+        let removed = ShortcutBinding(action: .select(sourceID: "ukr"), shortcut: .keyCombo(Self.optionOne))
+        let live = ShortcutBinding(action: .select(sourceID: "abc"), shortcut: .keyCombo(Self.optionOne))
+        #expect(BindingList.conflictingIDs(BindingList.active([removed, live], enabledSourceIDs: ["abc"])).isEmpty)
+        #expect(BindingList.conflictingIDs(BindingList.active([removed, live], enabledSourceIDs: ["abc", "ukr"])) == [removed.id, live.id])
+    }
+
+    @Test func stoppingTheTapEndsRecording() {
+        // Never started, so no system tap is created; stop() must still clear the engine state.
+        let tap = KeyboardEventTap { _ in }
+        tap.startRecording()
+        #expect(tap.isRecording)
+        tap.stop()
+        #expect(!tap.isRecording)
+    }
+
     @Test func menuBarLabels() {
         #expect(InputSourceInfo(id: "a", name: "ABC", languageCode: "en", iconURL: nil).shortLabel == "EN")
         #expect(InputSourceInfo(id: "u", name: "Ukrainian – PC", languageCode: "uk", iconURL: nil).shortLabel == "UA")

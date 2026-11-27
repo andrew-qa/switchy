@@ -4,7 +4,7 @@ import os
 
 /// A system-wide CGEventTap that feeds `ShortcutEngine` and drops the events it claims.
 ///
-/// Why a tap instead of Carbon `RegisterEventHotKey` (what MLSwitcher2 uses):
+/// Why a tap instead of Carbon `RegisterEventHotKey`:
 /// - macOS 15 started rejecting hotkeys whose only modifiers are ⌥ or ⌥⇧, which is exactly ⌥1 / ⌥§.
 /// - Hotkeys can't express modifier-only shortcuts or tell Left ⌘ from Right ⌘.
 ///
@@ -32,6 +32,7 @@ public final class KeyboardEventTap: @unchecked Sendable {
 
     public func startRecording() { lock.withLock { engine.startRecording() } }
     public func cancelRecording() { lock.withLock { engine.cancelRecording() } }
+    public var isRecording: Bool { lock.withLock { engine.isRecording } }
 
     /// Returns false when macOS refuses the tap, which means the permission is missing.
     @discardableResult
@@ -81,8 +82,10 @@ public final class KeyboardEventTap: @unchecked Sendable {
         return started.value
     }
 
+    /// Also ends any recording, so a restarted tap never comes back still eating keys.
     public func stop() {
         let loop: CFRunLoop? = lock.withLock {
+            engine.cancelRecording()
             let loop = runLoop
             runLoop = nil
             machPort = nil

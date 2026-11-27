@@ -29,6 +29,17 @@ public struct ShortcutBinding: Identifiable, Hashable, Codable, Sendable {
 }
 
 public enum BindingList {
+    /// The bindings that should be live. A shortcut for a layout that's no longer enabled stays
+    /// saved, so it comes back if the layout does, but it must not eat its keys meanwhile.
+    public static func active(_ bindings: [ShortcutBinding], enabledSourceIDs: Set<String>) -> [ShortcutBinding] {
+        bindings.filter { binding in
+            switch binding.action {
+            case .select(let id): enabledSourceIDs.contains(id)
+            case .next, .previous: true
+            }
+        }
+    }
+
     /// IDs of bindings that could fire on the same key press as another binding.
     public static func conflictingIDs(_ bindings: [ShortcutBinding]) -> Set<UUID> {
         var result = Set<UUID>()

@@ -27,6 +27,12 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         window?.makeKeyAndOrderFront(nil)
     }
 
+    // Recording eats keys system-wide, so it must end the moment you stop looking at Settings:
+    // switching apps, clicking another window, minimising, or closing all resign key first.
+    func windowDidResignKey(_ notification: Notification) {
+        model.cancelRecording()
+    }
+
     func windowWillClose(_ notification: Notification) {
         model.cancelRecording()
     }
